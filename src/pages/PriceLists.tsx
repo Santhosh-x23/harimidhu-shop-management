@@ -189,7 +189,7 @@ const translateToTamil = async (texts: string[]): Promise<Record<string, string>
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-const NUMS = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
+// Plain numbers — emoji keycaps show as boxes on many Android WhatsApp versions
 
 const unitTamil = (u: string) =>
   ({ Litre: "லிட்டர்", Kilogram: "கிலோ", Kg: "கிலோ", Gram: "கிராம்", Piece: "துண்டு" }[u] ?? u);
@@ -222,7 +222,7 @@ const formatText = (
   pricedProducts.forEach((p, i) => {
     const pName = lang === "tamil" ? (tr[p.name] || p.name) : p.name;
     const pUnit = lang === "tamil" ? unitTamil(p.unit) : p.unit;
-    lines.push(`${NUMS[i] ?? `${i + 1}.`} *${pName}* - 1 ${pUnit} - Rs.${p.price}`);
+    lines.push(`${i + 1}. *${pName}* - 1 ${pUnit} - Rs.${p.price}`);
   });
 
   lines.push(``);
