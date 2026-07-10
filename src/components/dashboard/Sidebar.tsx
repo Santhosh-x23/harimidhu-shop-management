@@ -2,17 +2,18 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { 
-  Users, 
-  ShoppingBag, 
-  ClipboardList, 
-  FileText, 
-  BarChart3, 
-  Menu, 
+import {
+  Users,
+  ShoppingBag,
+  ClipboardList,
+  FileText,
+  BarChart3,
+  Menu,
   Home,
   X,
   LogOut,
-  Settings
+  Settings,
+  Tag
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -23,6 +24,7 @@ const navItems = [
   { name: "Orders", href: "/orders", icon: ClipboardList },
   { name: "Invoices", href: "/invoices", icon: FileText },
   { name: "Expenses", href: "/expenses", icon: ClipboardList },
+  { name: "Price Lists", href: "/price-lists", icon: Tag },
   { name: "Reports", href: "/reports", icon: BarChart3 },
   { name: "Settings", href: "/settings/company", icon: Settings },
 ];

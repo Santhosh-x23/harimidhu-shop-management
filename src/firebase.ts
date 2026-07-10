@@ -23,6 +23,7 @@ const ordersCollection = collection(db, "orders");
 const invoicesCollection = collection(db, "invoices");
 const companySettingsCollection = collection(db, "companySettings");
 const invoiceCounterCollection = collection(db, "invoiceCounter");
+const priceListsCollection = collection(db, "priceLists");
 
 export {
   auth,
@@ -34,5 +35,6 @@ export {
   invoicesCollection,
   companySettingsCollection,
   invoiceCounterCollection,
+  priceListsCollection,
 };
 export default app;

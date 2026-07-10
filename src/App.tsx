@@ -25,6 +25,7 @@ import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import CompanySettings from "./pages/CompanySettings";
 import ExpenseManagement from "./components/expenses/ExpenseManagement";
+import PriceLists from "./pages/PriceLists";
 import PrivateRoute from "./components/PrivateRoute";
 import { AuthProvider } from "./context/AuthContext";
 
@@ -63,6 +64,7 @@ const App = () => (
               <Route path="/reports" element={<Reports />} />
               <Route path="/settings/company" element={<CompanySettings />} />
               <Route path="/expenses" element={<ExpenseManagement />} />
+              <Route path="/price-lists" element={<PriceLists />} />
             </Route>
             
             {/* Catch-all route */}
