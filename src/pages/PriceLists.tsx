@@ -208,10 +208,11 @@ const formatText = (
 
   const lines = [`🌿 *${brand}*`, `━━━━━━━━━━━━━━━━━━━━`, ``, `📋 *${title}*`, ``];
 
-  list.products.forEach((p, i) => {
+  // Skip products with no price set
+  const pricedProducts = list.products.filter((p) => p.price > 0);
+  pricedProducts.forEach((p, i) => {
     const pName = lang === "tamil" ? (tr[p.name] || p.name) : p.name;
     const pUnit = lang === "tamil" ? unitTamil(p.unit) : p.unit;
-    // Single line per product — no indented second line so font stays consistent
     lines.push(`${NUMS[i] ?? `${i + 1}.`} *${pName}* — 1 ${pUnit} — ₹${p.price}`);
   });
 
@@ -282,7 +283,7 @@ const PriceCard = ({ list, lang, tr, companyName, companyLogo, cardRef }: PriceC
         padding: "18px", display: "grid",
         gridTemplateColumns: "repeat(3, 1fr)", gap: "12px", background: "#f9fafb",
       }}>
-        {list.products.map((p) => {
+        {list.products.filter((p) => p.price > 0).map((p) => {
           const pName = lang === "tamil" ? (tr[p.name] || p.name) : p.name;
           const pUnit = lang === "tamil" ? unitTamil(p.unit) : p.unit;
           return (
@@ -493,6 +494,18 @@ const PriceLists = () => {
     setProductSearch("");
   };
 
+  const addAllProducts = () => {
+    const toAdd = allProducts.filter((p) => !selectedProducts.find((s) => s.productId === p.id));
+    if (!toAdd.length) { toast.info("All products already added"); return; }
+    setSelectedProducts((prev) => [
+      ...prev,
+      ...toAdd.map((p) => ({
+        productId: p.id, name: p.name, image: p.image, price: p.price, unit: p.unit || "Kg",
+      })),
+    ]);
+    toast.success(`Added ${toAdd.length} products`);
+  };
+
   const removeProduct = (id: string) =>
     setSelectedProducts((prev) => prev.filter((p) => p.productId !== id));
 
@@ -587,9 +600,16 @@ const PriceLists = () => {
                 <Card>
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between flex-wrap gap-2">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <CardTitle className="text-lg">{displayName}</CardTitle>
-                        <Badge variant="secondary">{list.products.length} products</Badge>
+                        <Badge variant="secondary">
+                          {list.products.filter((p) => p.price > 0).length} products
+                        </Badge>
+                        {list.products.some((p) => p.price === 0) && (
+                          <Badge variant="outline" className="text-amber-600 border-amber-300 text-xs">
+                            {list.products.filter((p) => p.price === 0).length} no price (skipped)
+                          </Badge>
+                        )}
                       </div>
 
                       <div className="flex items-center gap-2 flex-wrap">
@@ -632,15 +652,21 @@ const PriceLists = () => {
                       {list.products.map((p) => {
                         const pName = lang === "tamil" ? (translations[p.name] || p.name) : p.name;
                         const pUnit = lang === "tamil" ? unitTamil(p.unit) : p.unit;
+                        const noPrice = p.price === 0;
                         return (
                           <div key={p.productId}
-                            className="flex flex-col items-center text-center border rounded-lg p-2 gap-1.5">
+                            className={`flex flex-col items-center text-center border rounded-lg p-2 gap-1.5 relative ${noPrice ? "opacity-50" : ""}`}>
+                            {noPrice && (
+                              <span className="absolute top-1 right-1 text-[9px] bg-amber-100 text-amber-700 rounded px-1 leading-tight">
+                                no price
+                              </span>
+                            )}
                             <img src={p.image} alt={p.name}
                               className="w-16 h-16 object-cover rounded-md"
                               onError={(e) => { (e.target as HTMLImageElement).src = "/placeholder.svg"; }} />
                             <p className="text-xs font-medium leading-tight line-clamp-2">{pName}</p>
-                            <p className="text-xs font-semibold text-organic-primary">
-                              ₹{p.price}/{pUnit}
+                            <p className={`text-xs font-semibold ${noPrice ? "text-amber-500" : "text-organic-primary"}`}>
+                              {noPrice ? "Price not set" : `₹${p.price}/${pUnit}`}
                             </p>
                           </div>
                         );
@@ -669,7 +695,14 @@ const PriceLists = () => {
             </div>
 
             <div className="space-y-1.5">
-              <Label>Add Products</Label>
+              <div className="flex items-center justify-between">
+                <Label>Add Products</Label>
+                <Button type="button" size="sm" variant="outline"
+                  className="h-7 text-xs gap-1 border-organic-primary text-organic-primary hover:bg-organic-primary hover:text-white"
+                  onClick={addAllProducts}>
+                  <Plus className="h-3 w-3" /> Add All Products
+                </Button>
+              </div>
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input className="pl-8" placeholder="Search product…"
@@ -699,10 +732,20 @@ const PriceLists = () => {
 
             {selectedProducts.length > 0 && (
               <div className="space-y-1.5">
-                <Label>Selected Products ({selectedProducts.length})</Label>
+                <div className="flex items-center justify-between">
+                  <Label>
+                    Selected Products ({selectedProducts.length})
+                  </Label>
+                  {selectedProducts.some((p) => p.price === 0) && (
+                    <span className="text-xs text-amber-600">
+                      ⚠ Set price — ₹0 products won't be copied
+                    </span>
+                  )}
+                </div>
                 <div className="border rounded-md divide-y">
                   {selectedProducts.map((p, idx) => (
-                    <div key={p.productId} className="flex items-center gap-3 px-3 py-2">
+                    <div key={p.productId}
+                      className={`flex items-center gap-3 px-3 py-2 ${p.price === 0 ? "bg-amber-50" : ""}`}>
                       <span className="text-xs text-muted-foreground w-4 shrink-0">{idx + 1}.</span>
                       <img src={p.image} alt={p.name}
                         className="w-9 h-9 object-cover rounded shrink-0"
@@ -712,8 +755,9 @@ const PriceLists = () => {
                         <p className="text-xs text-muted-foreground">per {p.unit || "Kg"}</p>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
-                        <span className="text-sm text-muted-foreground">₹</span>
-                        <Input type="number" min="0" className="w-20 h-8 text-sm"
+                        <span className={`text-sm ${p.price === 0 ? "text-amber-500" : "text-muted-foreground"}`}>₹</span>
+                        <Input type="number" min="0"
+                          className={`w-20 h-8 text-sm ${p.price === 0 ? "border-amber-300 focus-visible:ring-amber-400" : ""}`}
                           value={p.price}
                           onChange={(e) => updatePrice(p.productId, parseFloat(e.target.value) || 0)} />
                       </div>
