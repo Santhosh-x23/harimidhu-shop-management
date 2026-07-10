@@ -146,14 +146,27 @@ const TAMIL_DICT: Record<string, string> = {
 
 // ── Translation (dictionary first, then MyMemory API) ────────────────────────
 
+// Clean text: decode HTML entities, strip invisible chars, NFC-normalise
+const clean = (s: string): string =>
+  s
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&#\d+;/g, "")          // remaining numeric entities
+    .replace(/­/g, "")          // soft hyphen
+    .replace(/[​-‏]/g, "") // zero-width space / non-joiners
+    .replace(/[‪-‮]/g, "") // LTR/RTL embedding marks
+    .replace(/﻿/g, "")          // BOM
+    .normalize("NFC")                // canonical Tamil composition
+    .trim();
+
 const applyDict = (text: string): string | null => {
   const key = text.toLowerCase().trim();
-  if (TAMIL_DICT[key]) return TAMIL_DICT[key];
-  // partial match — if any dictionary key is contained in the text
-  for (const [k, v] of Object.entries(TAMIL_DICT)) {
-    if (key === k) return v;
-  }
-  return null;
+  const val = TAMIL_DICT[key];
+  return val ? clean(val) : null;
 };
 
 // Check if a string is mostly Tamil (Unicode range 0x0B80–0x0BFF)
@@ -166,7 +179,6 @@ const translateToTamil = async (texts: string[]): Promise<Record<string, string>
   const results: Record<string, string> = {};
   await Promise.all(
     texts.map(async (text) => {
-      // Dictionary takes priority
       const dictResult = applyDict(text);
       if (dictResult) { results[text] = dictResult; return; }
 
@@ -175,8 +187,8 @@ const translateToTamil = async (texts: string[]): Promise<Record<string, string>
           `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|ta`
         );
         const data = await res.json();
-        const t = data.responseData?.translatedText;
-        // Accept only if it contains actual Tamil characters and isn't an error
+        const raw = data.responseData?.translatedText;
+        const t = raw ? clean(raw) : null;
         results[text] =
           t && isTamil(t) && !t.startsWith("MYMEMORY") ? t : text;
       } catch {
