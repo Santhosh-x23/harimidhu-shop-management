@@ -1,5 +1,4 @@
-import { useState, useEffect, useRef } from "react";
-import html2canvas from "html2canvas";
+import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,7 +16,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Plus, Copy, Share2, Trash2, Edit, Search, X, MessageCircle, Tag, Languages, Loader2 } from "lucide-react";
+import { Plus, Copy, Trash2, Edit, Search, X, MessageCircle, Tag, Languages, Loader2 } from "lucide-react";
 import { priceListsCollection, productsCollection, companySettingsCollection } from "@/firebase";
 import {
   addDoc, getDocs, doc, updateDoc, deleteDoc, serverTimestamp, query, orderBy,
@@ -201,130 +200,36 @@ const formatText = (
   tr: Record<string, string>,
   companyName: string
 ): string => {
-  const brand = lang === "tamil" ? (tr[companyName] || "ஹரிமிட்டு ஆர்கானிக்") : companyName;
+  // Company name always stays in English — never translated
+  const brand = companyName;
   const title = lang === "tamil" ? (tr[list.name] || list.name) : list.name;
-  const f1 = lang === "tamil" ? "✅ 100% தூய்மையான & இயற்கை" : "✅ 100% Pure & Organic";
-  const f2 = lang === "tamil" ? "📲 ஆர்டர் செய்ய தொடர்பு கொள்ளுங்கள்!" : "📲 DM us to place your order!";
+  const sep = "--------------------";
+  const f1 = lang === "tamil" ? "100% தூய்மையான & இயற்கை" : "100% Pure & Organic";
+  const f2 = lang === "tamil"
+    ? "வாங்க எங்களை தொடர்பு கொள்ளுங்கள் அல்லது மெசேஜ் செய்யுங்கள்!"
+    : "Message us or Contact us for buying products!";
 
-  const lines = [`🌿 *${brand}*`, `━━━━━━━━━━━━━━━━━━━━`, ``, `📋 *${title}*`, ``];
+  const lines = [
+    `*${brand}*`,
+    sep,
+    ``,
+    `*${title}*`,
+    ``,
+  ];
 
   // Skip products with no price set
   const pricedProducts = list.products.filter((p) => p.price > 0);
   pricedProducts.forEach((p, i) => {
     const pName = lang === "tamil" ? (tr[p.name] || p.name) : p.name;
     const pUnit = lang === "tamil" ? unitTamil(p.unit) : p.unit;
-    lines.push(`${NUMS[i] ?? `${i + 1}.`} *${pName}* — 1 ${pUnit} — ₹${p.price}`);
+    lines.push(`${NUMS[i] ?? `${i + 1}.`} *${pName}* - 1 ${pUnit} - Rs.${p.price}`);
   });
 
   lines.push(``);
-  lines.push(`━━━━━━━━━━━━━━━━━━━━`);
+  lines.push(sep);
   lines.push(f1);
   lines.push(f2);
   return lines.join("\n");
-};
-
-// ── Hidden price card (captured by html2canvas) ──────────────────────────────
-
-interface PriceCardProps {
-  list: PriceList;
-  lang: Lang;
-  tr: Record<string, string>;
-  companyName: string;
-  companyLogo: string;
-  cardRef: React.RefObject<HTMLDivElement | null>;
-}
-
-const PriceCard = ({ list, lang, tr, companyName, companyLogo, cardRef }: PriceCardProps) => {
-  const brand = lang === "tamil" ? (tr[companyName] || "ஹரிமிட்டு ஆர்கானிக்") : companyName;
-  const title = lang === "tamil" ? (tr[list.name] || list.name) : list.name;
-  const f1 = lang === "tamil" ? "100% தூய்மையான & இயற்கை" : "100% Pure & Organic";
-  const f2 = lang === "tamil" ? "ஆர்டர் செய்ய தொடர்பு கொள்ளுங்கள்" : "DM us to place your order!";
-
-  return (
-    <div
-      ref={cardRef as React.RefObject<HTMLDivElement>}
-      style={{
-        position: "fixed", top: "-9999px", left: "-9999px",
-        width: "640px", background: "#ffffff",
-        fontFamily: "'Segoe UI', Arial, sans-serif",
-        borderRadius: "16px", overflow: "hidden",
-      }}
-    >
-      {/* Header */}
-      <div style={{
-        background: "linear-gradient(135deg, #2d5a27 0%, #3d6b35 60%, #4a7a40 100%)",
-        padding: "22px 24px", display: "flex", alignItems: "center", gap: "16px",
-      }}>
-        {companyLogo && (
-          <img
-            src={companyLogo}
-            alt="logo"
-            crossOrigin="anonymous"
-            style={{
-              width: "64px", height: "64px", objectFit: "contain",
-              borderRadius: "10px", background: "#fff", padding: "6px", flexShrink: 0,
-            }}
-            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-          />
-        )}
-        <div>
-          <p style={{ color: "#a8d5a2", fontSize: "10px", margin: 0, letterSpacing: "2px", textTransform: "uppercase" }}>
-            🌿 Organic
-          </p>
-          <h1 style={{ color: "#fff", fontSize: "22px", margin: "4px 0 2px", fontWeight: 700 }}>
-            {brand}
-          </h1>
-          <p style={{ color: "#c8e6c4", fontSize: "13px", margin: 0 }}>{title}</p>
-        </div>
-      </div>
-
-      {/* Product grid */}
-      <div style={{
-        padding: "18px", display: "grid",
-        gridTemplateColumns: "repeat(3, 1fr)", gap: "12px", background: "#f9fafb",
-      }}>
-        {list.products.filter((p) => p.price > 0).map((p) => {
-          const pName = lang === "tamil" ? (tr[p.name] || p.name) : p.name;
-          const pUnit = lang === "tamil" ? unitTamil(p.unit) : p.unit;
-          return (
-            <div key={p.productId} style={{
-              background: "#fff", borderRadius: "12px", padding: "12px 8px",
-              textAlign: "center", border: "1px solid #e5e7eb",
-              boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
-            }}>
-              <img
-                src={p.image} alt={p.name} crossOrigin="anonymous"
-                style={{
-                  width: "80px", height: "80px", objectFit: "cover",
-                  borderRadius: "10px", display: "block", margin: "0 auto 8px",
-                }}
-                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-              />
-              <p style={{ fontSize: "12px", fontWeight: 600, color: "#111827", margin: "0 0 4px", lineHeight: 1.3 }}>
-                {pName}
-              </p>
-              <p style={{ fontSize: "14px", color: "#2d5a27", fontWeight: 700, margin: 0 }}>
-                ₹{p.price}
-              </p>
-              <p style={{ fontSize: "10px", color: "#6b7280", margin: "2px 0 0" }}>
-                per {pUnit}
-              </p>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Footer */}
-      <div style={{
-        background: "#ecf5eb", padding: "12px 24px",
-        display: "flex", justifyContent: "space-between", alignItems: "center",
-        borderTop: "1px solid #d1e8cc",
-      }}>
-        <p style={{ fontSize: "12px", color: "#2d5a27", margin: 0, fontWeight: 600 }}>✅ {f1}</p>
-        <p style={{ fontSize: "11px", color: "#6b7280", margin: 0 }}>📲 {f2}</p>
-      </div>
-    </div>
-  );
 };
 
 // ── Main Page ────────────────────────────────────────────────────────────────
@@ -339,9 +244,6 @@ const PriceLists = () => {
   const [translating, setTranslating] = useState(false);
 
   const [companyName, setCompanyName] = useState("HARIMIDHU ORGANIC");
-  const [companyLogo, setCompanyLogo] = useState("");
-
-  const [generatingId, setGeneratingId] = useState<string | null>(null);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingList, setEditingList] = useState<PriceList | null>(null);
@@ -350,13 +252,6 @@ const PriceLists = () => {
   const [productSearch, setProductSearch] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-
-  const cardRefs = useRef<Record<string, React.RefObject<HTMLDivElement | null>>>({});
-
-  const getCardRef = (id: string): React.RefObject<HTMLDivElement | null> => {
-    if (!cardRefs.current[id]) cardRefs.current[id] = { current: null };
-    return cardRefs.current[id];
-  };
 
   // ── Load ─────────────────────────────────────────────────────────────────
 
@@ -375,7 +270,6 @@ const PriceLists = () => {
       if (!compSnap.empty) {
         const cd = compSnap.docs[0].data();
         setCompanyName(cd.name || "HARIMIDHU ORGANIC");
-        setCompanyLogo(cd.logo || "");
       }
     } catch { toast.error("Failed to load data"); }
     finally { setLoading(false); }
@@ -404,19 +298,6 @@ const PriceLists = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lang, priceLists]);
 
-  // ── Image generation ─────────────────────────────────────────────────────
-
-  const generateBlob = async (list: PriceList): Promise<Blob | null> => {
-    const ref = cardRefs.current[list.id];
-    if (!ref?.current) return null;
-    try {
-      const canvas = await html2canvas(ref.current, {
-        useCORS: true, scale: 2, logging: false, backgroundColor: "#ffffff",
-      });
-      return new Promise((res) => canvas.toBlob((b) => res(b), "image/png"));
-    } catch { return null; }
-  };
-
   // ── Share actions ────────────────────────────────────────────────────────
 
   const handleCopy = async (list: PriceList) => {
@@ -427,49 +308,6 @@ const PriceLists = () => {
   const handleWhatsApp = (list: PriceList) => {
     const text = formatText(list, lang, translations, companyName);
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
-  };
-
-  const handleShare = async (list: PriceList) => {
-    setGeneratingId(list.id);
-    const text = formatText(list, lang, translations, companyName);
-    try {
-      const blob = await generateBlob(list);
-
-      if (blob && navigator.share) {
-        const file = new File([blob], `${list.name}-price-list.png`, { type: "image/png" });
-        if (navigator.canShare?.({ files: [file] })) {
-          await navigator.share({ title: `${companyName} – ${list.name}`, text, files: [file] });
-          return;
-        }
-      }
-
-      // Desktop: download image + copy text
-      if (blob) {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `${list.name}-price-list.png`;
-        a.click();
-        URL.revokeObjectURL(url);
-        await navigator.clipboard.writeText(text);
-        toast.success("Image saved & text copied — send them together!");
-        return;
-      }
-
-      // Fallback: text only
-      if (navigator.share) await navigator.share({ title: companyName, text });
-      else {
-        await navigator.clipboard.writeText(text);
-        toast.success("Copied to clipboard");
-      }
-    } catch (err: any) {
-      if (err?.name !== "AbortError") {
-        await navigator.clipboard.writeText(text);
-        toast.success("Copied to clipboard");
-      }
-    } finally {
-      setGeneratingId(null);
-    }
   };
 
   // ── Dialog helpers ───────────────────────────────────────────────────────
@@ -586,17 +424,9 @@ const PriceLists = () => {
           </Card>
         ) : (
           priceLists.map((list) => {
-            const cardRef = getCardRef(list.id);
             const displayName = lang === "tamil" ? (translations[list.name] || list.name) : list.name;
             return (
               <div key={list.id}>
-                {/* Hidden card rendered off-screen for html2canvas */}
-                <PriceCard
-                  list={list} lang={lang} tr={translations}
-                  companyName={companyName} companyLogo={companyLogo}
-                  cardRef={cardRef}
-                />
-
                 <Card>
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between flex-wrap gap-2">
@@ -622,17 +452,6 @@ const PriceLists = () => {
                           className="h-8 gap-1 text-xs text-green-600 border-green-200 hover:bg-green-50"
                           onClick={() => handleWhatsApp(list)}>
                           <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
-                        </Button>
-
-                        <Button size="sm"
-                          className="h-8 gap-1 text-xs bg-organic-primary hover:bg-organic-dark"
-                          onClick={() => handleShare(list)}
-                          disabled={generatingId === list.id}>
-                          {generatingId === list.id ? (
-                            <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Generating…</>
-                          ) : (
-                            <><Share2 className="h-3.5 w-3.5" /> Share with Image</>
-                          )}
                         </Button>
 
                         <Button size="sm" variant="outline" className="h-8" onClick={() => openEdit(list)}>
