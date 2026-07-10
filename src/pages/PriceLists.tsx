@@ -16,7 +16,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Plus, Copy, Trash2, Edit, Search, X, MessageCircle, Tag, Languages, Loader2 } from "lucide-react";
+import { Plus, Copy, Trash2, Edit, Search, X, MessageCircle, Tag, Languages, Loader2, ImageDown } from "lucide-react";
 import { priceListsCollection, productsCollection, companySettingsCollection } from "@/firebase";
 import {
   addDoc, getDocs, doc, updateDoc, deleteDoc, serverTimestamp, query, orderBy,
@@ -177,14 +177,14 @@ const clean = (s: string): string =>
     .replace(/&gt;/gi, ">")
     .replace(/&quot;/gi, '"')
     .replace(/&#39;/gi, "'")
-    .replace(/&#\d+;/g, "")           // remaining numeric HTML entities
-    .replace(/ /g, " ")          // non-breaking space → regular space
-    .replace(/­/g, "")           // soft hyphen
-    .replace(/[​-‏]/g, "")  // zero-width space / non-joiners / LRM / RLM
-    .replace(/[‪-‮]/g, "")  // LTR/RTL embedding + override marks
-    .replace(/[  ]/g, " ")  // line / paragraph separators
-    .replace(/﻿/g, "")           // BOM
-    .normalize("NFC")                 // canonical Tamil combining mark composition
+    .replace(/&#\d+;/g, "")
+    .replace(/\u00A0/g, " ")
+    .replace(/\u00AD/g, "")
+    .replace(/[\u200B-\u200F]/g, "")
+    .replace(/[\u202A-\u202E]/g, "")
+    .replace(/[\u2028\u2029]/g, " ")
+    .replace(/\uFEFF/g, "")
+    .normalize("NFC")
     .trim();
 
 const applyDict = (text: string): string | null => {
@@ -288,6 +288,7 @@ const PriceLists = () => {
   const [productSearch, setProductSearch] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [generatingImage, setGeneratingImage] = useState(false);
 
   // ── Load ─────────────────────────────────────────────────────────────────
 
@@ -344,6 +345,81 @@ const PriceLists = () => {
   const handleWhatsApp = (list: PriceList) => {
     const text = formatText(list, lang, translations, companyName);
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+  };
+
+  const handleShareImage = async (list: PriceList) => {
+    setGeneratingImage(true);
+    try {
+      // Wait for Noto Sans Tamil (already loaded via index.html link tag)
+      await document.fonts.load('400 20px "Noto Sans Tamil"');
+      await document.fonts.load('700 20px "Noto Sans Tamil"');
+
+      const text = formatText(list, lang, translations, companyName);
+      const rawLines = text.split("\n");
+
+      const W = 680;
+      const FONT_SIZE = 20;
+      const LINE_H = Math.round(FONT_SIZE * 1.75);
+      const PAD = 44;
+
+      const canvas = document.createElement("canvas");
+      canvas.width = W;
+      canvas.height = rawLines.length * LINE_H + PAD * 2;
+      const ctx = canvas.getContext("2d")!;
+
+      // Warm background
+      ctx.fillStyle = "#fff8ee";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Green top stripe
+      ctx.fillStyle = "#2d6a4f";
+      ctx.fillRect(0, 0, W, 8);
+      ctx.fillRect(0, canvas.height - 8, W, 8);
+
+      rawLines.forEach((rawLine, i) => {
+        const y = PAD + i * LINE_H + FONT_SIZE;
+
+        if (rawLine === "--------------------") {
+          ctx.strokeStyle = "#b5936b";
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([4, 4]);
+          ctx.beginPath();
+          ctx.moveTo(PAD, y - FONT_SIZE * 0.4);
+          ctx.lineTo(W - PAD, y - FONT_SIZE * 0.4);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          return;
+        }
+
+        // *bold* text — WhatsApp asterisk markers
+        const isBold = rawLine.startsWith("*") && rawLine.endsWith("*") && rawLine.length > 2;
+        const lineText = isBold ? rawLine.slice(1, -1) : rawLine;
+
+        ctx.font = `${isBold ? "700" : "400"} ${FONT_SIZE}px "Noto Sans Tamil", sans-serif`;
+        ctx.fillStyle = isBold ? "#1a4731" : "#2d2d2d";
+        ctx.fillText(lineText, PAD, y);
+      });
+
+      canvas.toBlob(async (blob) => {
+        if (!blob) { toast.error("Failed to generate image"); setGeneratingImage(false); return; }
+        const file = new File([blob], `${list.name.replace(/\s+/g, "-")}-prices.png`, { type: "image/png" });
+        try {
+          if (navigator.canShare?.({ files: [file] })) {
+            await navigator.share({ files: [file], title: list.name });
+          } else {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url; a.download = file.name; a.click();
+            URL.revokeObjectURL(url);
+            toast.success("Image saved! Open it and share in WhatsApp");
+          }
+        } catch { /* user cancelled share */ }
+        setGeneratingImage(false);
+      }, "image/png");
+    } catch {
+      toast.error("Could not generate image");
+      setGeneratingImage(false);
+    }
   };
 
   // ── Dialog helpers ───────────────────────────────────────────────────────
@@ -488,6 +564,16 @@ const PriceLists = () => {
                           className="h-8 gap-1 text-xs text-green-600 border-green-200 hover:bg-green-50"
                           onClick={() => handleWhatsApp(list)}>
                           <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+                        </Button>
+
+                        <Button size="sm" variant="outline"
+                          className="h-8 gap-1 text-xs text-purple-600 border-purple-200 hover:bg-purple-50"
+                          disabled={generatingImage}
+                          onClick={() => handleShareImage(list)}>
+                          {generatingImage
+                            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            : <ImageDown className="h-3.5 w-3.5" />}
+                          {generatingImage ? "Generating..." : "Share Image"}
                         </Button>
 
                         <Button size="sm" variant="outline" className="h-8" onClick={() => openEdit(list)}>
