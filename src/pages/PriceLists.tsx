@@ -51,20 +51,125 @@ interface FirestoreProduct {
 
 type Lang = "english" | "tamil";
 
-// ── Translation (MyMemory free API — no key required) ───────────────────────
+// ── Local dictionary for Tamil food/product names the API misses ─────────────
+
+const TAMIL_DICT: Record<string, string> = {
+  // Rice varieties
+  "ponni raw rice": "பொன்னி பச்சை அரிசி",
+  "ponni rice": "பொன்னி அரிசி",
+  "raw rice": "பச்சை அரிசி",
+  "boiled rice": "வேகவைத்த அரிசி",
+  "idli rice": "இட்லி அரிசி",
+  "sona masoori rice": "சோனா மசூரி அரிசி",
+  "basmati rice": "பாஸ்மதி அரிசி",
+  "red rice": "சிவப்பு அரிசி",
+  "brown rice": "பழுப்பு அரிசி",
+
+  // Flours & rava
+  "idli rava": "இட்லி ரவை",
+  "wheat rava": "கோதுமை ரவை",
+  "rava": "ரவை",
+  "wheat flour": "கோதுமை மாவு",
+  "rice flour": "அரிசி மாவு",
+  "corn flour": "சோள மாவு",
+  "maida": "மைதா",
+  "ragi flour": "கேழ்வரகு மாவு",
+  "besan": "கடலை மாவு",
+  "chickpea flour": "கடலை மாவு",
+
+  // Oils
+  "groundnut oil": "கடலை எண்ணெய்",
+  "coconut oil": "தேங்காய் எண்ணெய்",
+  "sesame oil": "நல்லெண்ணெய்",
+  "gingelly oil": "நல்லெண்ணெய்",
+  "neem oil": "வேப்ப எண்ணெய்",
+  "castor oil": "ஆமணக்கு எண்ணெய்",
+  "mustard oil": "கடுகு எண்ணெய்",
+  "sunflower oil": "சூரியகாந்தி எண்ணெய்",
+  "cold pressed oil": "கோல்டு ப்ரஸ்ட் எண்ணெய்",
+  "butter tree oil": "இல்லுப்பை எண்ணெய்",
+  "wood pressed oil": "மர செக்கு எண்ணெய்",
+
+  // Dals & pulses
+  "toor dal": "துவரம் பருப்பு",
+  "urad dal": "உளுந்து பருப்பு",
+  "urad dal whole": "உளுந்து முழு",
+  "urad dal whole (white)": "உளுந்து தால் முழு (வெள்ளை)",
+  "moong dal": "பச்சை பருப்பு",
+  "chana dal": "கடலை பருப்பு",
+  "masoor dal": "மசூர் பருப்பு",
+  "rajma": "ராஜ்மா",
+  "black gram": "உளுந்து",
+  "green gram": "பச்சை பயறு",
+  "horse gram": "கொள்ளு",
+
+  // Spices
+  "turmeric": "மஞ்சள்",
+  "turmeric powder": "மஞ்சள் தூள்",
+  "red chilli": "சிவப்பு மிளகாய்",
+  "red chilli powder": "மிளகாய் தூள்",
+  "coriander powder": "தனியா தூள்",
+  "cumin": "சீரகம்",
+  "mustard": "கடுகு",
+  "pepper": "மிளகு",
+  "black pepper": "கருப்பு மிளகு",
+  "cardamom": "ஏலக்காய்",
+  "cloves": "கிராம்பு",
+  "cinnamon": "பட்டை",
+  "fenugreek": "வெந்தயம்",
+
+  // Sugars & jaggery
+  "jaggery": "வெல்லம்",
+  "palm jaggery": "பனை வெல்லம்",
+  "coconut sugar": "தேங்காய் சர்க்கரை",
+  "sugar": "சர்க்கரை",
+  "brown sugar": "பழுப்பு சர்க்கரை",
+
+  // Others
+  "honey": "தேன்",
+  "coconut": "தேங்காய்",
+  "dried coconut": "உலர்ந்த தேங்காய்",
+  "tamarind": "புளி",
+  "salt": "உப்பு",
+  "rock salt": "கல் உப்பு",
+  "black salt": "கருப்பு உப்பு",
+};
+
+// ── Translation (dictionary first, then MyMemory API) ────────────────────────
+
+const applyDict = (text: string): string | null => {
+  const key = text.toLowerCase().trim();
+  if (TAMIL_DICT[key]) return TAMIL_DICT[key];
+  // partial match — if any dictionary key is contained in the text
+  for (const [k, v] of Object.entries(TAMIL_DICT)) {
+    if (key === k) return v;
+  }
+  return null;
+};
+
+// Check if a string is mostly Tamil (Unicode range 0x0B80–0x0BFF)
+const isTamil = (s: string) => {
+  const tamilChars = (s.match(/[஀-௿]/g) || []).length;
+  return tamilChars / s.length > 0.3;
+};
 
 const translateToTamil = async (texts: string[]): Promise<Record<string, string>> => {
   const results: Record<string, string> = {};
   await Promise.all(
     texts.map(async (text) => {
+      // Dictionary takes priority
+      const dictResult = applyDict(text);
+      if (dictResult) { results[text] = dictResult; return; }
+
       try {
         const res = await fetch(
           `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|ta`
         );
         const data = await res.json();
         const t = data.responseData?.translatedText;
+        // Accept only if it contains actual Tamil characters and isn't an error
         results[text] =
-          t && t !== text && !t.startsWith("MYMEMORY") ? t : text;
+          t && isTamil(t) && !t.startsWith("MYMEMORY") ? t : text;
       } catch {
         results[text] = text;
       }
@@ -96,11 +201,11 @@ const formatText = (
   list.products.forEach((p, i) => {
     const pName = lang === "tamil" ? (tr[p.name] || p.name) : p.name;
     const pUnit = lang === "tamil" ? unitTamil(p.unit) : p.unit;
-    lines.push(`${NUMS[i] ?? `${i + 1}.`} *${pName}*`);
-    lines.push(`   📦 1 ${pUnit} → ₹${p.price}`);
-    lines.push(``);
+    // Single line per product — no indented second line so font stays consistent
+    lines.push(`${NUMS[i] ?? `${i + 1}.`} *${pName}* — 1 ${pUnit} — ₹${p.price}`);
   });
 
+  lines.push(``);
   lines.push(`━━━━━━━━━━━━━━━━━━━━`);
   lines.push(f1);
   lines.push(f2);
