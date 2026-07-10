@@ -90,6 +90,16 @@ const TAMIL_DICT: Record<string, string> = {
   "butter tree oil": "இல்லுப்பை எண்ணெய்",
   "wood pressed oil": "மர செக்கு எண்ணெய்",
 
+  // Nuts & seeds
+  "ground nut": "வேர்க்கடலை",
+  "groundnut": "வேர்க்கடலை",
+  "peanut": "வேர்க்கடலை",
+  "peanuts": "வேர்க்கடலை",
+  "cashew": "முந்திரி",
+  "cashew nut": "முந்திரி பருப்பு",
+  "almond": "பாதாம்",
+  "walnut": "வால்நட்",
+
   // Dals & pulses
   "toor dal": "துவரம் பருப்பு",
   "urad dal": "உளுந்து பருப்பு",

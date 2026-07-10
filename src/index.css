@@ -3,6 +3,11 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Noto Sans Tamil in the fallback stack so Tamil glyphs always render correctly */
+body {
+  font-family: ui-sans-serif, system-ui, sans-serif, 'Noto Sans Tamil';
+}
+
 @layer base {
   :root {
     --background: 120 20% 98%;
