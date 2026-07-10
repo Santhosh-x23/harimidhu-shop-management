@@ -127,6 +127,28 @@ const TAMIL_DICT: Record<string, string> = {
   "cinnamon": "பட்டை",
   "fenugreek": "வெந்தயம்",
 
+  // Millets & grains
+  "thinnai": "தினை",
+  "foxtail millet": "தினை",
+  "kambu": "கம்பு",
+  "pearl millet": "கம்பு",
+  "cholam": "சோளம்",
+  "sorghum": "சோளம்",
+  "ragi": "கேழ்வரகு",
+  "finger millet": "கேழ்வரகு",
+  "kuthiraivali": "குதிரைவாலி",
+  "barnyard millet": "குதிரைவாலி",
+  "varagu": "வரகு",
+  "kodo millet": "வரகு",
+  "samai": "சாமை",
+  "little millet": "சாமை",
+  "thinai": "தினை",
+  "corn": "சோளம்",
+  "maize": "மக்காச்சோளம்",
+  "wheat": "கோதுமை",
+  "oats": "ஓட்ஸ்",
+  "barley": "வாற்கோதுமை",
+
   // Sugars & jaggery
   "jaggery": "வெல்லம்",
   "palm jaggery": "பனை வெல்லம்",
@@ -146,7 +168,7 @@ const TAMIL_DICT: Record<string, string> = {
 
 // ── Translation (dictionary first, then MyMemory API) ────────────────────────
 
-// Clean text: decode HTML entities, strip invisible chars, NFC-normalise
+// Clean text: decode HTML entities, strip invisible/control chars, NFC-normalise
 const clean = (s: string): string =>
   s
     .replace(/&nbsp;/gi, " ")
@@ -155,12 +177,14 @@ const clean = (s: string): string =>
     .replace(/&gt;/gi, ">")
     .replace(/&quot;/gi, '"')
     .replace(/&#39;/gi, "'")
-    .replace(/&#\d+;/g, "")          // remaining numeric entities
-    .replace(/­/g, "")          // soft hyphen
-    .replace(/[​-‏]/g, "") // zero-width space / non-joiners
-    .replace(/[‪-‮]/g, "") // LTR/RTL embedding marks
-    .replace(/﻿/g, "")          // BOM
-    .normalize("NFC")                // canonical Tamil composition
+    .replace(/&#\d+;/g, "")           // remaining numeric HTML entities
+    .replace(/ /g, " ")          // non-breaking space → regular space
+    .replace(/­/g, "")           // soft hyphen
+    .replace(/[​-‏]/g, "")  // zero-width space / non-joiners / LRM / RLM
+    .replace(/[‪-‮]/g, "")  // LTR/RTL embedding + override marks
+    .replace(/[  ]/g, " ")  // line / paragraph separators
+    .replace(/﻿/g, "")           // BOM
+    .normalize("NFC")                 // canonical Tamil combining mark composition
     .trim();
 
 const applyDict = (text: string): string | null => {
