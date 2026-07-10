@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore, collection } from "firebase/firestore";
+import { getFirestore, collection, doc } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
@@ -24,6 +24,7 @@ const invoicesCollection = collection(db, "invoices");
 const companySettingsCollection = collection(db, "companySettings");
 const invoiceCounterCollection = collection(db, "invoiceCounter");
 const priceListsCollection = collection(db, "priceLists");
+const customTranslationsDoc = doc(db, "customTranslations", "overrides");
 
 export {
   auth,
@@ -36,5 +37,6 @@ export {
   companySettingsCollection,
   invoiceCounterCollection,
   priceListsCollection,
+  customTranslationsDoc,
 };
 export default app;

@@ -16,10 +16,10 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Plus, Copy, Trash2, Edit, Search, X, MessageCircle, Tag, Languages, Loader2, ImageDown } from "lucide-react";
-import { priceListsCollection, productsCollection, companySettingsCollection } from "@/firebase";
+import { Plus, Copy, Trash2, Edit, Search, X, MessageCircle, Tag, Languages, Loader2, ImageDown, Pencil, Check } from "lucide-react";
+import { priceListsCollection, productsCollection, companySettingsCollection, customTranslationsDoc } from "@/firebase";
 import {
-  addDoc, getDocs, doc, updateDoc, deleteDoc, serverTimestamp, query, orderBy,
+  addDoc, getDocs, doc, updateDoc, deleteDoc, serverTimestamp, query, orderBy, getDoc, setDoc,
 } from "firebase/firestore";
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -289,6 +289,9 @@ const PriceLists = () => {
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [generatingImage, setGeneratingImage] = useState(false);
+  const [customTranslations, setCustomTranslations] = useState<Record<string, string>>({});
+  const [editingTr, setEditingTr] = useState<string | null>(null);
+  const [editTrValue, setEditTrValue] = useState("");
 
   // ── Load ─────────────────────────────────────────────────────────────────
 
@@ -297,10 +300,11 @@ const PriceLists = () => {
   const loadAll = async () => {
     setLoading(true);
     try {
-      const [plSnap, prodSnap, compSnap] = await Promise.all([
+      const [plSnap, prodSnap, compSnap, ctSnap] = await Promise.all([
         getDocs(query(priceListsCollection, orderBy("createdAt", "desc"))),
         getDocs(productsCollection),
         getDocs(companySettingsCollection),
+        getDoc(customTranslationsDoc),
       ]);
       setPriceLists(plSnap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<PriceList, "id">) })));
       setAllProducts(prodSnap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<FirestoreProduct, "id">) })));
@@ -308,6 +312,7 @@ const PriceLists = () => {
         const cd = compSnap.docs[0].data();
         setCompanyName(cd.name || "HARIMIDHU ORGANIC");
       }
+      if (ctSnap.exists()) setCustomTranslations(ctSnap.data() as Record<string, string>);
     } catch { toast.error("Failed to load data"); }
     finally { setLoading(false); }
   };
@@ -337,13 +342,16 @@ const PriceLists = () => {
 
   // ── Share actions ────────────────────────────────────────────────────────
 
+  // Merge: custom translations take priority over API/dict
+  const mergedTr = { ...translations, ...customTranslations };
+
   const handleCopy = async (list: PriceList) => {
-    await navigator.clipboard.writeText(formatText(list, lang, translations, companyName));
+    await navigator.clipboard.writeText(formatText(list, lang, mergedTr, companyName));
     toast.success("Copied! Paste in WhatsApp or any app");
   };
 
   const handleWhatsApp = (list: PriceList) => {
-    const text = formatText(list, lang, translations, companyName);
+    const text = formatText(list, lang, mergedTr, companyName);
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
   };
 
@@ -354,7 +362,7 @@ const PriceLists = () => {
       await document.fonts.load('400 20px "Noto Sans Tamil"');
       await document.fonts.load('700 20px "Noto Sans Tamil"');
 
-      const text = formatText(list, lang, translations, companyName);
+      const text = formatText(list, lang, mergedTr, companyName);
       const rawLines = text.split("\n");
 
       const W = 680;
@@ -421,6 +429,23 @@ const PriceLists = () => {
       setGeneratingImage(false);
     }
   };
+
+  // ── Custom translation save ───────────────────────────────────────────────
+
+  const saveCustomTranslation = async (englishName: string, tamilName: string) => {
+    const trimmed = tamilName.trim();
+    if (!trimmed) return;
+    const updated = { ...customTranslations, [englishName]: trimmed };
+    await setDoc(customTranslationsDoc, updated);
+    setCustomTranslations(updated);
+    setTranslations((prev) => ({ ...prev, [englishName]: trimmed }));
+    setEditingTr(null);
+    toast.success("Translation saved!");
+  };
+
+  // Helper: get best Tamil name (custom > API/dict)
+  const getTamil = (name: string) =>
+    customTranslations[name] || translations[name] || name;
 
   // ── Dialog helpers ───────────────────────────────────────────────────────
 
@@ -591,9 +616,10 @@ const PriceLists = () => {
                   <CardContent>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                       {list.products.map((p) => {
-                        const pName = lang === "tamil" ? (translations[p.name] || p.name) : p.name;
+                        const pName = lang === "tamil" ? getTamil(p.name) : p.name;
                         const pUnit = lang === "tamil" ? unitTamil(p.unit) : p.unit;
                         const noPrice = p.price === 0;
+                        const isEditingThis = editingTr === p.name;
                         return (
                           <div key={p.productId}
                             className={`flex flex-col items-center text-center border rounded-lg p-2 gap-1.5 relative ${noPrice ? "opacity-50" : ""}`}>
@@ -605,7 +631,39 @@ const PriceLists = () => {
                             <img src={p.image} alt={p.name}
                               className="w-16 h-16 object-cover rounded-md"
                               onError={(e) => { (e.target as HTMLImageElement).src = "/placeholder.svg"; }} />
-                            <p className="text-xs font-medium leading-tight line-clamp-2">{pName}</p>
+
+                            {lang === "tamil" && isEditingThis ? (
+                              <div className="flex flex-col gap-1 w-full">
+                                <input
+                                  autoFocus
+                                  className="text-xs border rounded px-1 py-0.5 w-full text-center outline-none ring-1 ring-organic-primary"
+                                  value={editTrValue}
+                                  onChange={(e) => setEditTrValue(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") saveCustomTranslation(p.name, editTrValue);
+                                    if (e.key === "Escape") setEditingTr(null);
+                                  }}
+                                />
+                                <button
+                                  className="text-[10px] bg-organic-primary text-white rounded px-1 py-0.5 flex items-center justify-center gap-0.5"
+                                  onClick={() => saveCustomTranslation(p.name, editTrValue)}>
+                                  <Check className="h-3 w-3" /> Save
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-center gap-1 w-full">
+                                <p className="text-xs font-medium leading-tight line-clamp-2">{pName}</p>
+                                {lang === "tamil" && (
+                                  <button
+                                    className="shrink-0 text-muted-foreground hover:text-organic-primary"
+                                    title="Fix Tamil spelling"
+                                    onClick={() => { setEditingTr(p.name); setEditTrValue(pName); }}>
+                                    <Pencil className="h-2.5 w-2.5" />
+                                  </button>
+                                )}
+                              </div>
+                            )}
+
                             <p className={`text-xs font-semibold ${noPrice ? "text-amber-500" : "text-organic-primary"}`}>
                               {noPrice ? "Price not set" : `₹${p.price}/${pUnit}`}
                             </p>
